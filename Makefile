@@ -4,6 +4,7 @@ INCLDIR = .
 OUTDIR = .
 
 ## General Flags
+PROGRAM = lex
 CC = gcc
 LD = gcc
 CFLAGS = -Wall -O0 -I $(INCLDIR)
@@ -18,6 +19,7 @@ all: $(OBJECTS)
 ## Compile source files
 $(OBJDIR)/%.o : $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c -o $(OBJDIR)/$*.o $< 
+	ar rcs $(PROGRAM).a $(OBJECTS)
 
 clean:
 	-rm -rf $(OBJECTS)
