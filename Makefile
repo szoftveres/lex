@@ -19,7 +19,6 @@ all: $(OBJECTS)
 ## Compile source files
 $(OBJDIR)/%.o : $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c -o $(OBJDIR)/$*.o $< 
-	ar rcs $(PROGRAM).a $(OBJECTS)
 
 clean:
 	-rm -rf $(OBJECTS)
