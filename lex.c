@@ -5,6 +5,7 @@
 
 
 static int     last_char;
+static int     flags;
 
 static char*  pointer;
 
@@ -159,6 +160,11 @@ int lex (char c) {
           case T_STRING_START :
           case T_STRING_CONTENT :
             syntax_error("missing terminating \" character");
+          default:
+            if (flags & LEX_NEWLINE_AS_TOKEN) {
+                token = T_NEWLINE;          /* \n */
+                return 1;
+            }
         }
     }
 
@@ -386,8 +392,9 @@ void next_token (void) {
 }
 
 
-void lex_init (void) {
+void lex_init (int init_flags) {
     last_char = EOF;
+    flags = init_flags;
     next_token();
 }
 

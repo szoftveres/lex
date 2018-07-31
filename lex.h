@@ -7,6 +7,7 @@
 enum {
     T_NONE,
     T_EOF,
+    T_NEWLINE,
     T_BACKSLASH,                /* \ */
     T_IDENTIFIER,               /* [a-zA-Z_][a-zA-Z0-9_] */
     T_INTEGER,                  /* [0-9] */
@@ -75,11 +76,15 @@ enum {
 
 };
 
+enum {
+    LEX_NEWLINE_AS_TOKEN      = 0x0001,
+};
+
 
 extern char     lexeme[];
 extern int      token;
 
-void lex_init (void);
+void lex_init (int init_flags);
 void next_token (void);
 int lex_get(int token_type, const char* str);
 void str_process (void);
