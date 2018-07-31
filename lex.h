@@ -84,7 +84,9 @@ enum {
 extern char     lexeme[];
 extern int      token;
 
-void lex_init (int init_flags);
+void lex_init_fd (int ifd, int init_flags);
+void lex_init_buf (char* ibuf, int init_flags);
+
 void next_token (void);
 int lex_get(int token_type, const char* str);
 void str_process (void);

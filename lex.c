@@ -1,11 +1,22 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "lex.h"
 
 
 static int     last_char;
 static int     flags;
+static int     fd;
+static int     mode;
+
+static char*   buf;
+static int     bufidx;
+
+enum {
+    LEX_MODE_FILE,
+    LEX_MODE_BUF,
+};
 
 static char*  pointer;
 
@@ -33,7 +44,20 @@ int popchar (void) {
         c = last_char;
         last_char = EOF;
     } else {
-        c = getchar();
+        switch (mode) {
+          case LEX_MODE_FILE:
+            if (!read(fd, &c, 1)) {
+                c = EOF;
+            }
+            break;
+          case LEX_MODE_BUF:
+            c = buf[bufidx];
+            bufidx++;
+            break;
+          default:
+            fprintf(stderr, "[%s:%d]: error\n", __FUNCTION__, __LINE__);
+            exit (1);
+        }
     }
     return c;
 }
@@ -43,7 +67,7 @@ int popchar (void) {
 int newline (char c) {
     switch (c) {
       case '\n' : case '\r' :
-        return 1;
+        return (!(flags & LEX_NEWLINE_AS_TOKEN));
     }
     return 0;
 }
@@ -160,11 +184,6 @@ int lex (char c) {
           case T_STRING_START :
           case T_STRING_CONTENT :
             syntax_error("missing terminating \" character");
-          default:
-            if (flags & LEX_NEWLINE_AS_TOKEN) {
-                token = T_NEWLINE;          /* \n */
-                return 1;
-            }
         }
     }
 
@@ -362,9 +381,11 @@ int lex (char c) {
       case '^' : token = T_BWXOR; return 1;
       case '~' : token = T_BWNEG; return 1;
       case '|' : token = T_BWOR; return 1;
+      case '\n' : token = T_NEWLINE; return 1;
       case (char)EOF : token = T_EOF; return 1;
     }
-    syntax_error("illegal character");
+    fprintf(stderr, "syntax error: llegal character '%c' 0x%02x\n", c, c);
+
     /* not reached */
     return (0);
 }
@@ -382,7 +403,7 @@ void next_token (void) {
             if (token != T_NONE) {
                 pushchar(c);
                 *pointer = '\0';
-                //fprintf(stdout, "//      %s    \n", lexeme);
+//                fprintf(stdout, "//      %s   %d \n", lexeme, token);
                 return;
             }
             continue; /* It was a trailing whitespace */
@@ -392,11 +413,23 @@ void next_token (void) {
 }
 
 
-void lex_init (int init_flags) {
+void lex_init_fd (int ifd, int init_flags) {
+    mode = LEX_MODE_FILE;
     last_char = EOF;
     flags = init_flags;
+    fd = ifd;
     next_token();
 }
+
+void lex_init_buf (char* ibuf, int init_flags) {
+    mode = LEX_MODE_BUF;
+    last_char = EOF;
+    flags = init_flags;
+    buf = ibuf;
+    bufidx = 0;
+    next_token();
+}
+
 
 
 int lex_get (int token_type, const char* str) {
