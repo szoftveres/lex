@@ -87,14 +87,16 @@ typedef struct {
     int     token;
     int     last_char;
     int     flags;
-    int     (*read_byte)(int*);  // Function to read the next byte
-    void    (*error) (const char*);  // Error message printer
+    int     (*read_byte)(void*, int*);  // Function to read the next byte
+    void    (*error) (void*, const char*);  // Error message printer
+    void    *context;           // High-level context (object owner)
 } lex_instance_t;
 
 
-lex_instance_t* lex_init (int lexeme_size,
-                          int (*read_byte)(int*),
-                          void (*error) (const char*),
+lex_instance_t* lex_init (void *context,
+                          int lexeme_size,
+                          int (*read_byte)(void*, int*),
+                          void (*error) (void*, const char*),
                           int init_flags);
 
 void lex_reset (lex_instance_t *instance);

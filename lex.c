@@ -11,7 +11,7 @@ void pushchar (lex_instance_t *instance, int c) {
     if (instance->last_char == EOF) {
         instance->last_char = c;
     } else {
-        instance->error("lex: double-push");
+        instance->error(instance->context, "lex: double-push");
     }
     return;
 }
@@ -22,7 +22,7 @@ int popchar (lex_instance_t *instance) {
         c = instance->last_char;
         instance->last_char = EOF;
     } else {
-        if (!instance->read_byte(&c)) {
+        if (!instance->read_byte(instance->context, &c)) {
             c = EOF;
         }
     }
@@ -119,7 +119,7 @@ int tokenize (lex_instance_t *instance, char c) {
             instance->token = T_STRING_SPECIAL;
             return 1;
         }
-        instance->error("stray '\\' in program");
+        instance->error(instance->context, "stray '\\' in program");
         instance->token = T_ERROR;
         return 0;
     }
@@ -149,12 +149,12 @@ int tokenize (lex_instance_t *instance, char c) {
         switch (instance->token) {
           case T_CHAR_START :
           case T_CHAR_CONTENT :
-            instance->error("missing terminating ' character");
+            instance->error(instance->context, "missing terminating ' character");
             instance->token = T_ERROR;
             return 0;
           case T_STRING_START :
           case T_STRING_CONTENT :
-            instance->error("missing terminating \" character");
+            instance->error(instance->context, "missing terminating \" character");
             instance->token = T_ERROR;
             return 0;
         }
@@ -172,7 +172,7 @@ int tokenize (lex_instance_t *instance, char c) {
                 instance->token = T_OCTAL;
                 return 1; /* ok, continue */
             } else {
-                instance->error("invalid octal digit");
+                instance->error(instance->context, "invalid octal digit");
                 instance->token = T_ERROR;
                 return 0;
             }
@@ -182,7 +182,7 @@ int tokenize (lex_instance_t *instance, char c) {
                 instance->token = T_BINARY;
                 return 1; /* ok, continue */
             } else {
-                instance->error("invalid binary digit");
+                instance->error(instance->context, "invalid binary digit");
                 instance->token = T_ERROR;
                 return 0;
             }
@@ -192,7 +192,7 @@ int tokenize (lex_instance_t *instance, char c) {
                 instance->token = T_HEXA;
                 return 1; /* ok, continue */
             } else {
-                instance->error("invalid hexadecimal digit");
+                instance->error(instance->context, "invalid hexadecimal digit");
                 instance->token = T_ERROR;
                 return 0;
             }
@@ -214,7 +214,7 @@ int tokenize (lex_instance_t *instance, char c) {
             instance->token = T_IDENTIFIER;
             return 1;
           case T_INTEGER:
-            instance->error("invalid decimal digit");
+            instance->error(instance->context, "invalid decimal digit");
             instance->token = T_ERROR;
             return 0;
           case T_HEXA_S :
@@ -223,7 +223,7 @@ int tokenize (lex_instance_t *instance, char c) {
                 instance->token = T_HEXA;
                 return 1; /* ok, continue */
             } else {
-                instance->error("invalid hexadecimal digit");
+                instance->error(instance->context, "invalid hexadecimal digit");
                 instance->token = T_ERROR;
                 return 0;
             }
@@ -235,7 +235,7 @@ int tokenize (lex_instance_t *instance, char c) {
                 instance->token = T_BINARY_S;
                 return 1;
             } else {
-                instance->error("invalid character followed by 0");
+                instance->error(instance->context, "invalid character followed by 0");
                 instance->token = T_ERROR;
                 return 0;
             }
@@ -331,7 +331,7 @@ int tokenize (lex_instance_t *instance, char c) {
         break;
       case T_HEXA_S :
       case T_BINARY_S :
-        instance->error("expected digit after prefix");
+        instance->error(instance->context, "expected digit after prefix");
         instance->token = T_ERROR;
         return 0;
     }
@@ -370,7 +370,7 @@ int tokenize (lex_instance_t *instance, char c) {
       case (char)EOF : instance->token = T_EOF; return 1;
     }
 
-    instance->error("Illegal character");
+    instance->error(instance->context, "Illegal character");
     instance->token = T_ERROR;
     return (0);
 }
@@ -403,9 +403,10 @@ void lex_reset (lex_instance_t *instance) {
 }
 
 
-lex_instance_t* lex_init (int lexeme_size,
-                          int (*read_byte)(int*),
-                          void (*error) (const char*),
+lex_instance_t* lex_init (void *context,
+                          int lexeme_size,
+                          int (*read_byte)(void*, int*),
+                          void (*error) (void*, const char*),
                           int init_flags) {
 
     lex_instance_t* instance;
@@ -418,6 +419,7 @@ lex_instance_t* lex_init (int lexeme_size,
     if (!instance->lexeme) {
         return NULL;
     }
+    instance->context = context;
     instance->flags = init_flags;
     instance->read_byte = read_byte;
     instance->error = error;
@@ -449,7 +451,7 @@ void str_process (lex_instance_t *instance) {
         return;
     }
     if (!buf) {
-        instance->error("malloc error");
+        instance->error(instance->context, "malloc error");
         instance->token = T_ERROR;
         return;
     }
@@ -481,7 +483,7 @@ void str_process (lex_instance_t *instance) {
                 buf[bp] = '\'';
                 break;
               default :
-                instance->error("illegal esc seq");
+                instance->error(instance->context, "illegal esc seq");
                 instance->token = T_ERROR;
                 break;
             }
@@ -540,7 +542,7 @@ int num_process (lex_instance_t *instance) {
         }
         break;
       default:
-        instance->error("unknown numeric format");
+        instance->error(instance->context, "unknown numeric format");
         instance->token = T_ERROR;
     }
     return value;
