@@ -99,6 +99,8 @@ lex_instance_t* lex_create (void *context,
                             void (*error) (lex_instance_t*, const char*),
                             int init_flags);
 
+void lex_destroy (lex_instance_t* instance);
+
 void lex_reset (lex_instance_t *instance);
 void next_token (lex_instance_t* instance);
 int lex_get(lex_instance_t* instance, int token_type, const char* str);

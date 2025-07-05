@@ -431,6 +431,15 @@ lex_instance_t* lex_create (void *context,
     return instance;
 }
 
+
+void lex_destroy (lex_instance_t* instance) {
+    if (!instance) {
+        return;
+    }
+    free(instance->lexeme);
+    free(instance);
+}
+
 int lex_get (lex_instance_t *instance, int token_type, const char* str) {
     if (token_type != instance->token) {
         return 0;
