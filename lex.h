@@ -4,6 +4,7 @@
 
 enum {
     T_NONE,
+    T_ERROR,
     T_EOF,
     T_NEWLINE,
     T_BACKSLASH,                /* \ */

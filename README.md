@@ -4,6 +4,7 @@ Universal, platform-independent lexical analyzer
 ```
     T_NONE,
     T_EOF,
+    T_ERROR,
     T_NEWLINE,
     T_BACKSLASH,                /* \ */
     T_IDENTIFIER,               /* [a-zA-Z_][a-zA-Z0-9_] */

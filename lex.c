@@ -120,6 +120,7 @@ int lex (lex_instance_t *instance, char c) {
             return 1;
         }
         instance->error("stray '\\' in program");
+        instance->token = T_ERROR;
         return 0;
     }
 
@@ -149,10 +150,12 @@ int lex (lex_instance_t *instance, char c) {
           case T_CHAR_START :
           case T_CHAR_CONTENT :
             instance->error("missing terminating ' character");
+            instance->token = T_ERROR;
             return 0;
           case T_STRING_START :
           case T_STRING_CONTENT :
             instance->error("missing terminating \" character");
+            instance->token = T_ERROR;
             return 0;
         }
     }
@@ -170,6 +173,7 @@ int lex (lex_instance_t *instance, char c) {
                 return 1; /* ok, continue */
             } else {
                 instance->error("invalid octal digit");
+                instance->token = T_ERROR;
                 return 0;
             }
           case T_BINARY_S :
@@ -179,6 +183,7 @@ int lex (lex_instance_t *instance, char c) {
                 return 1; /* ok, continue */
             } else {
                 instance->error("invalid binary digit");
+                instance->token = T_ERROR;
                 return 0;
             }
           case T_HEXA_S :
@@ -188,6 +193,7 @@ int lex (lex_instance_t *instance, char c) {
                 return 1; /* ok, continue */
             } else {
                 instance->error("invalid hexadecimal digit");
+                instance->token = T_ERROR;
                 return 0;
             }
           case T_NONE :
@@ -209,6 +215,7 @@ int lex (lex_instance_t *instance, char c) {
             return 1;
           case T_INTEGER:
             instance->error("invalid decimal digit");
+            instance->token = T_ERROR;
             return 0;
           case T_HEXA_S :
           case T_HEXA :
@@ -217,6 +224,7 @@ int lex (lex_instance_t *instance, char c) {
                 return 1; /* ok, continue */
             } else {
                 instance->error("invalid hexadecimal digit");
+                instance->token = T_ERROR;
                 return 0;
             }
           case T_LEAD_ZERO :
@@ -228,6 +236,7 @@ int lex (lex_instance_t *instance, char c) {
                 return 1;
             } else {
                 instance->error("invalid character followed by 0");
+                instance->token = T_ERROR;
                 return 0;
             }
         }
@@ -322,7 +331,8 @@ int lex (lex_instance_t *instance, char c) {
         break;
       case T_HEXA_S :
       case T_BINARY_S :
-        instance->error("expected digit after non-decimal prefix");
+        instance->error("expected digit after prefix");
+        instance->token = T_ERROR;
         return 0;
     }
 
@@ -361,6 +371,7 @@ int lex (lex_instance_t *instance, char c) {
     }
 
     instance->error("Illegal character");
+    instance->token = T_ERROR;
     return (0);
 }
 
@@ -429,11 +440,12 @@ void str_process (lex_instance_t *instance) {
     int tp;
     int bp;
     char *buf = (char*)malloc(instance->lexeme_size);
-    if (!buf) {
-        instance->error("malloc error");
+    if (instance->token != T_STRING) {
         return;
     }
-    if (instance->token != T_STRING) {
+    if (!buf) {
+        instance->error("malloc error");
+        instance->token = T_ERROR;
         return;
     }
     tp = 0;
@@ -465,6 +477,7 @@ void str_process (lex_instance_t *instance) {
                 break;
               default :
                 instance->error("illegal esc seq");
+                instance->token = T_ERROR;
                 break;
             }
             bp++;
@@ -523,6 +536,7 @@ int num_process (lex_instance_t *instance) {
         break;
       default:
         instance->error("unknown numeric format");
+        instance->token = T_ERROR;
     }
     return value;
 }
