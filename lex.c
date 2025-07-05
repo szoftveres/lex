@@ -397,6 +397,12 @@ void next_token (lex_instance_t* instance) {
 }
 
 
+void lex_reset (lex_instance_t *instance) {
+    instance->last_char = EOF;
+    next_token(instance);
+}
+
+
 lex_instance_t* lex_init (int lexeme_size,
                           int (*read_byte)(int*),
                           void (*error) (const char*),
@@ -415,9 +421,8 @@ lex_instance_t* lex_init (int lexeme_size,
     instance->flags = init_flags;
     instance->read_byte = read_byte;
     instance->error = error;
-    instance->last_char = EOF;
     instance->lexeme_size = lexeme_size;
-    next_token(instance);
+    lex_reset(instance);
 
     return instance;
 }
