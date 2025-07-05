@@ -413,11 +413,13 @@ lex_instance_t* lex_create (void *context,
 
     instance = (lex_instance_t*)malloc(sizeof(lex_instance_t));
     if (!instance) {
-        return (instance);
+        return instance;
     }
     instance->lexeme = (char*)malloc(lexeme_size);
     if (!instance->lexeme) {
-        return NULL;
+        free(instance);
+        instance = NULL;
+        return instance;
     }
     instance->context = context;
     instance->flags = init_flags;
@@ -443,7 +445,7 @@ int lex_get (lex_instance_t *instance, int token_type, const char* str) {
 }
 
 
-void str_process (lex_instance_t *instance) {
+void str_value (lex_instance_t *instance) {
     int tp;
     int bp;
     char *buf = (char*)malloc(instance->lexeme_size);
@@ -503,7 +505,7 @@ void str_process (lex_instance_t *instance) {
 
 
 
-int num_process (lex_instance_t *instance) {
+int integer_value (lex_instance_t *instance) {
     int i;
     int value = 0;
 

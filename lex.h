@@ -102,8 +102,8 @@ lex_instance_t* lex_create (void *context,
 void lex_reset (lex_instance_t *instance);
 void next_token (lex_instance_t* instance);
 int lex_get(lex_instance_t* instance, int token_type, const char* str);
-void str_process (lex_instance_t* instance);
-int num_process (lex_instance_t* instance);
+void str_value (lex_instance_t* instance);
+int integer_value (lex_instance_t* instance);
 
 
 #endif
