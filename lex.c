@@ -107,7 +107,7 @@ int alpha (char c) {
 
 /**
 */
-int lex (lex_instance_t *instance, char c) {
+int tokenize (lex_instance_t *instance, char c) {
 
     if (c == '\\') {
         switch (instance->token) {
@@ -384,7 +384,7 @@ void next_token (lex_instance_t* instance) {
     instance->pointer = instance->lexeme;
     while (1) {
         c = popchar(instance);
-        if (!lex(instance, (char)c)) {
+        if (!tokenize(instance, (char)c)) {
             if (instance->token != T_NONE) {
                 pushchar(instance, c);
                 *(instance->pointer) = '\0';
