@@ -80,24 +80,24 @@ enum {
 };
 
 
-typedef struct {
+typedef struct lex_instance_s {
     char*   lexeme;
     int     lexeme_size;
     char*   pointer;
     int     token;
     int     last_char;
     int     flags;
-    int     (*read_byte)(void*, int*);  // Function to read the next byte
-    void    (*error) (void*, const char*);  // Error message printer
+    int     (*read_byte)(struct lex_instance_s*, int*);  // Function to read the next byte
+    void    (*error) (struct lex_instance_s*, const char*);  // Error message printer
     void    *context;           // High-level context (object owner)
 } lex_instance_t;
 
 
-lex_instance_t* lex_init (void *context,
-                          int lexeme_size,
-                          int (*read_byte)(void*, int*),
-                          void (*error) (void*, const char*),
-                          int init_flags);
+lex_instance_t* lex_create (void *context,
+                            int lexeme_size,
+                            int (*read_byte)(lex_instance_t*, int*),
+                            void (*error) (lex_instance_t*, const char*),
+                            int init_flags);
 
 void lex_reset (lex_instance_t *instance);
 void next_token (lex_instance_t* instance);
