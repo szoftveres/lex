@@ -7,7 +7,7 @@ OUTDIR = .
 PROGRAM = lex
 CC = gcc
 LD = gcc
-CFLAGS = -Wall -O0 -I $(INCLDIR)
+CFLAGS = -Wall -Wextra -O0 -I $(INCLDIR)
 
 ## Objects that must be built in order to link
 OBJECTS = $(OBJDIR)/lex.o

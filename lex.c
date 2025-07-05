@@ -5,58 +5,25 @@
 #include "lex.h"
 
 
-static int     last_char;
-static int     flags;
-static int     fd;
-static int     mode;
 
-static char*   buf;
-static int     bufidx;
 
-enum {
-    LEX_MODE_FILE,
-    LEX_MODE_BUF,
-};
-
-static char*  pointer;
-
-char     lexeme[MAX_TOKEN_SIZE];
-int      token;
-
-void syntax_error (const char* msg) {
-    fprintf(stderr, "syntax error: %s\n", msg);
-    exit(1);
-}
-
-void pushchar (int c) {
-    if (last_char == EOF) {
-        last_char = c;
+void pushchar (lex_instance_t *instance, int c) {
+    if (instance->last_char == EOF) {
+        instance->last_char = c;
     } else {
-        fprintf(stderr, "[%s:%d]: error\n", __FUNCTION__, __LINE__);
-        exit (1);
+        instance->error("lex: double-push");
     }
     return;
 }
 
-int popchar (void) {
+int popchar (lex_instance_t *instance) {
     int c;
-    if (last_char != EOF) {
-        c = last_char;
-        last_char = EOF;
+    if (instance->last_char != EOF) {
+        c = instance->last_char;
+        instance->last_char = EOF;
     } else {
-        switch (mode) {
-          case LEX_MODE_FILE:
-            if (!read(fd, &c, 1)) {
-                c = EOF;
-            }
-            break;
-          case LEX_MODE_BUF:
-            c = buf[bufidx];
-            bufidx++;
-            break;
-          default:
-            fprintf(stderr, "[%s:%d]: error\n", __FUNCTION__, __LINE__);
-            exit (1);
+        if (!instance->read_byte(&c)) {
+            c = EOF;
         }
     }
     return c;
@@ -64,20 +31,20 @@ int popchar (void) {
 
 /**
 */
-int newline (char c) {
+int newline (lex_instance_t *instance, char c) {
     switch (c) {
       case '\n' : case '\r' :
-        return (!(flags & LEX_NEWLINE_AS_TOKEN));
+        return (!(instance->flags & LEX_NEWLINE_AS_TOKEN));
     }
     return 0;
 }
 
-int wspace (char c) {
+int wspace (lex_instance_t *instance, char c) {
     switch (c) {
       case ' ' : case '\t' :
         return 1;
     }
-    return (newline(c));
+    return (newline(instance, c));
 }
 
 int bin (char c) {
@@ -140,328 +107,344 @@ int alpha (char c) {
 
 /**
 */
-int lex (char c) {
+int lex (lex_instance_t *instance, char c) {
 
     if (c == '\\') {
-        switch (token) {
+        switch (instance->token) {
           case T_CHAR_START :
-            token = T_CHAR_SPECIAL;
+            instance->token = T_CHAR_SPECIAL;
             return 1;
           case T_STRING_START :
           case T_STRING_CONTENT :
-            token = T_STRING_SPECIAL;
+            instance->token = T_STRING_SPECIAL;
             return 1;
         }
-        syntax_error("stray '\\' in program");
+        instance->error("stray '\\' in program");
+        return 0;
     }
 
     if (c == '\'') {
-        switch (token) {
+        switch (instance->token) {
           case T_NONE :
-            token = T_CHAR_START;
+            instance->token = T_CHAR_START;
             return 1;   /* ok, continue */
           case T_CHAR_CONTENT :
-            token = T_CHAR;
+            instance->token = T_CHAR;
             return 1;   /* seems like finished */
         }
     }
     if (c == '\"') {
-        switch (token) {
+        switch (instance->token) {
           case T_NONE :
-            token = T_STRING_START;
+            instance->token = T_STRING_START;
             return 1;   /* ok, continue */
           case T_STRING_CONTENT :
-            token = T_STRING;
+            instance->token = T_STRING;
             return 1;   /* seems like finished */
         }
     }
     /* newline */
-    if (newline(c)) {
-        switch (token) {
+    if (newline(instance, c)) {
+        switch (instance->token) {
           case T_CHAR_START :
           case T_CHAR_CONTENT :
-            syntax_error("missing terminating ' character");
+            instance->error("missing terminating ' character");
+            return 0;
           case T_STRING_START :
           case T_STRING_CONTENT :
-            syntax_error("missing terminating \" character");
+            instance->error("missing terminating \" character");
+            return 0;
         }
     }
 
     /* numerical */
     if (dec(c)) {
-        switch (token) {
+        switch (instance->token) {
           case T_INTEGER :
           case T_IDENTIFIER :
             return 1; /* ok, continue */
           case T_LEAD_ZERO :
           case T_OCTAL :
             if (oct(c)) {
-                token = T_OCTAL;
+                instance->token = T_OCTAL;
                 return 1; /* ok, continue */
             } else {
-                syntax_error("invalid octal digit");
+                instance->error("invalid octal digit");
+                return 0;
             }
           case T_BINARY_S :
           case T_BINARY :
             if (bin(c)) {
-                token = T_BINARY;
+                instance->token = T_BINARY;
                 return 1; /* ok, continue */
             } else {
-                syntax_error("invalid binary digit");
+                instance->error("invalid binary digit");
+                return 0;
             }
           case T_HEXA_S :
           case T_HEXA :
             if (hex(c)) {
-                token = T_HEXA;
+                instance->token = T_HEXA;
                 return 1; /* ok, continue */
             } else {
-                syntax_error("invalid hexadecimal digit");
+                instance->error("invalid hexadecimal digit");
+                return 0;
             }
           case T_NONE :
             if (c == '0') {
-                token = T_LEAD_ZERO;
+                instance->token = T_LEAD_ZERO;
             } else {
-                token = T_INTEGER;
+                instance->token = T_INTEGER;
             }
             return 1;
         }
     }
     /* alphabetical */
     if (alpha(c)) {
-        switch (token) {
+        switch (instance->token) {
           case T_IDENTIFIER:
             return 1; /* ok, continue */
           case T_NONE :
-            token = T_IDENTIFIER;
+            instance->token = T_IDENTIFIER;
             return 1;
           case T_INTEGER:
-            syntax_error("invalid decimal digit");
-            break;
+            instance->error("invalid decimal digit");
+            return 0;
           case T_HEXA_S :
           case T_HEXA :
             if (hex(c)) {
-                token = T_HEXA;
+                instance->token = T_HEXA;
                 return 1; /* ok, continue */
             } else {
-                syntax_error("invalid hexadecimal digit");
+                instance->error("invalid hexadecimal digit");
+                return 0;
             }
           case T_LEAD_ZERO :
             if (c == 'x' || c == 'X') {
-                token = T_HEXA_S;
+                instance->token = T_HEXA_S;
                 return 1;
             } else if (c == 'b' || c == 'B') {
-                token = T_BINARY_S;
+                instance->token = T_BINARY_S;
                 return 1;
             } else {
-                syntax_error("invalid character followed by 0");
+                instance->error("invalid character followed by 0");
+                return 0;
             }
         }
     }
     /* two-char operators */
     switch (c) {
       case '=' :
-        switch (token) {
+        switch (instance->token) {
           case  T_ASSIGN :
-            token = T_EQ;          /* == */
+            instance->token = T_EQ;          /* == */
             return 1;
           case T_NEG :
-            token = T_NEQ;         /* != */
+            instance->token = T_NEQ;         /* != */
             return 1;
           case T_LESS :
-            token = T_LEQ;         /* <= */
+            instance->token = T_LEQ;         /* <= */
             return 1;
           case T_GREATER :
-            token = T_GREQ;        /* >= */
+            instance->token = T_GREQ;        /* >= */
             return 1;
           case T_PLUS :
-            token = T_RECURADD;    /* += */
+            instance->token = T_RECURADD;    /* += */
             return 1;
           case T_MINUS :
-            token = T_RECURSUB;    /* -= */
+            instance->token = T_RECURSUB;    /* -= */
             return 1;
           case T_MUL :
-            token = T_RECURMUL;    /* *= */
+            instance->token = T_RECURMUL;    /* *= */
             return 1;
           case T_DIV :
-            token = T_RECURDIV;    /* /= */
+            instance->token = T_RECURDIV;    /* /= */
             return 1;
           case T_BWAND :
-            token = T_RECURBWAND;  /* &= */
+            instance->token = T_RECURBWAND;  /* &= */
             return 1;
           case T_BWOR :
-            token = T_RECURBWOR;   /* |= */
+            instance->token = T_RECURBWOR;   /* |= */
             return 1;
           case T_BWXOR :
-            token = T_RECURBWXOR;  /* ^= */
+            instance->token = T_RECURBWXOR;  /* ^= */
             return 1;
         }
         break;
       case '&' :
-        switch (token) {
+        switch (instance->token) {
           case T_BWAND :
-            token = T_LAND;        /* && */
+            instance->token = T_LAND;        /* && */
             return 1;
         }
         break;
       case '|' :
-        switch (token) {
+        switch (instance->token) {
           case T_BWOR :
-            token = T_LOR;         /* || */
+            instance->token = T_LOR;         /* || */
             return 1;
         }
         break;
       case '<' :
-        switch (token) {
+        switch (instance->token) {
           case T_LESS :                 /* << */
-            token = T_SLEFT;
+            instance->token = T_SLEFT;
             return 1;
         }
         break;
       case '>' :
-        switch (token) {
+        switch (instance->token) {
           case T_GREATER :              /* >> */
-            token = T_SRIGHT;
+            instance->token = T_SRIGHT;
             return 1;
 		  case T_MINUS :
-            token = T_ARROW;            /* -> */
+            instance->token = T_ARROW;            /* -> */
             return 1;
         }
         break;
     }
 
-    switch (token) {
+    switch (instance->token) {
       case T_CHAR_START :
       case T_CHAR_SPECIAL :
-        token = T_CHAR_CONTENT;
+        instance->token = T_CHAR_CONTENT;
         return 1;   /* ok, continue */
       case T_STRING_START :
       case T_STRING_SPECIAL :
       case T_STRING_CONTENT :
-        token = T_STRING_CONTENT;
+        instance->token = T_STRING_CONTENT;
         return 1;   /* ok, continue */
       case T_LEAD_ZERO:
         /* convert LEAD ZERO to integer in case it was
          * not followed by anything useful
          */
-        token = T_INTEGER;
+        instance->token = T_INTEGER;
         break;
       case T_HEXA_S :
       case T_BINARY_S :
-        syntax_error("expected digit after non-decimal prefix");
-        break;
+        instance->error("expected digit after non-decimal prefix");
+        return 0;
     }
 
-    if ((token != T_NONE) || wspace(c)) {
+    if ((instance->token != T_NONE) || wspace(instance, c)) {
         return 0; /* Other token begins, return */
     }
 
     switch (c) {
-      case ';' : token = T_SEMICOLON; return 1;
-      case ':' : token = T_COLON; return 1;
-      case '?' : token = T_QUESTIONMARK; return 1;
-      case '(' : token = T_LEFT_PARENTH; return 1;
-      case ')' : token = T_RIGHT_PARENTH; return 1;
-      case '[' : token = T_LEFT_SQUARE_BRACKET; return 1;
-      case ']' : token = T_RIGHT_SQUARE_BRACKET; return 1;
-      case '{' : token = T_LEFT_BRACE; return 1;
-      case '}' : token = T_RIGHT_BRACE; return 1;
-      case ',' : token = T_COMMA; return 1;
-      case '.' : token = T_FULLSTOP; return 1;
-      case '+' : token = T_PLUS; return 1;
-      case '-' : token = T_MINUS; return 1;
-      case '*' : token = T_MUL; return 1;
-      case '/' : token = T_DIV; return 1;
-      case '%' : token = T_MOD; return 1;
-      case '=' : token = T_ASSIGN; return 1;
-      case '<' : token = T_LESS; return 1;
-      case '>' : token = T_GREATER; return 1;
-      case '!' : token = T_NEG; return 1;
-      case '@' : token = T_AT; return 1;
-      case '&' : token = T_BWAND; return 1;
-      case '^' : token = T_BWXOR; return 1;
-      case '~' : token = T_BWNEG; return 1;
-      case '|' : token = T_BWOR; return 1;
-      case '\n' : token = T_NEWLINE; return 1;
-      case (char)EOF : token = T_EOF; return 1;
+      case ';' : instance->token = T_SEMICOLON; return 1;
+      case ':' : instance->token = T_COLON; return 1;
+      case '?' : instance->token = T_QUESTIONMARK; return 1;
+      case '(' : instance->token = T_LEFT_PARENTH; return 1;
+      case ')' : instance->token = T_RIGHT_PARENTH; return 1;
+      case '[' : instance->token = T_LEFT_SQUARE_BRACKET; return 1;
+      case ']' : instance->token = T_RIGHT_SQUARE_BRACKET; return 1;
+      case '{' : instance->token = T_LEFT_BRACE; return 1;
+      case '}' : instance->token = T_RIGHT_BRACE; return 1;
+      case ',' : instance->token = T_COMMA; return 1;
+      case '.' : instance->token = T_FULLSTOP; return 1;
+      case '+' : instance->token = T_PLUS; return 1;
+      case '-' : instance->token = T_MINUS; return 1;
+      case '*' : instance->token = T_MUL; return 1;
+      case '/' : instance->token = T_DIV; return 1;
+      case '%' : instance->token = T_MOD; return 1;
+      case '=' : instance->token = T_ASSIGN; return 1;
+      case '<' : instance->token = T_LESS; return 1;
+      case '>' : instance->token = T_GREATER; return 1;
+      case '!' : instance->token = T_NEG; return 1;
+      case '@' : instance->token = T_AT; return 1;
+      case '&' : instance->token = T_BWAND; return 1;
+      case '^' : instance->token = T_BWXOR; return 1;
+      case '~' : instance->token = T_BWNEG; return 1;
+      case '|' : instance->token = T_BWOR; return 1;
+      case '\n' : instance->token = T_NEWLINE; return 1;
+      case (char)EOF : instance->token = T_EOF; return 1;
     }
-    fprintf(stderr, "syntax error: llegal character '%c' 0x%02x\n", c, c);
 
-    /* not reached */
+    instance->error("Illegal character");
     return (0);
 }
 
 /**
 */
-void next_token (void) {
+void next_token (lex_instance_t* instance) {
     int c;
 
-    token = T_NONE;
-    pointer = lexeme;
+    instance->token = T_NONE;
+    instance->pointer = instance->lexeme;
     while (1) {
-        c = popchar();
-        if (!lex((char)c)) {
-            if (token != T_NONE) {
-                pushchar(c);
-                *pointer = '\0';
-//                fprintf(stdout, "//      %s   %d \n", lexeme, token);
+        c = popchar(instance);
+        if (!lex(instance, (char)c)) {
+            if (instance->token != T_NONE) {
+                pushchar(instance, c);
+                *(instance->pointer) = '\0';
                 return;
             }
             continue; /* It was a trailing whitespace */
         }
-        *pointer++ = (char)c;
+        *(instance->pointer++) = (char)c;
     }
 }
 
 
-void lex_init_fd (int ifd, int init_flags) {
-    mode = LEX_MODE_FILE;
-    last_char = EOF;
-    flags = init_flags;
-    fd = ifd;
-    next_token();
+lex_instance_t* lex_init (int lexeme_size,
+                          int (*read_byte)(int*),
+                          void (*error) (const char*),
+                          int init_flags) {
+
+    lex_instance_t* instance;
+
+    instance = (lex_instance_t*)malloc(sizeof(lex_instance_t));
+    if (!instance) {
+        return (instance);
+    }
+    instance->lexeme = (char*)malloc(lexeme_size);
+    if (!instance->lexeme) {
+        return NULL;
+    }
+    instance->flags = init_flags;
+    instance->read_byte = read_byte;
+    instance->error = error;
+    instance->last_char = EOF;
+    instance->lexeme_size = lexeme_size;
+    next_token(instance);
+
+    return instance;
 }
 
-void lex_init_buf (char* ibuf, int init_flags) {
-    mode = LEX_MODE_BUF;
-    last_char = EOF;
-    flags = init_flags;
-    buf = ibuf;
-    bufidx = 0;
-    next_token();
-}
-
-
-
-int lex_get (int token_type, const char* str) {
-    if (token_type != token) {
+int lex_get (lex_instance_t *instance, int token_type, const char* str) {
+    if (token_type != instance->token) {
         return 0;
     }
     if (str) {
-        if (strcmp(str, lexeme)) {
+        if (strcmp(str, instance->lexeme)) {
             return 0;
         }
     }
-    next_token();
+    next_token(instance);
     return 1;
 }
 
 
-void str_process (void) {
+void str_process (lex_instance_t *instance) {
     int tp;
     int bp;
-    char buf[MAX_TOKEN_SIZE];
-    if (token != T_STRING) {
+    char *buf = (char*)malloc(instance->lexeme_size);
+    if (!buf) {
+        instance->error("malloc error");
+        return;
+    }
+    if (instance->token != T_STRING) {
         return;
     }
     tp = 0;
     bp = 0;
-    while ((lexeme[tp]) && (tp < MAX_TOKEN_SIZE)) {
-        switch (lexeme[tp]) {
+    while ((instance->lexeme[tp]) && (tp < instance->lexeme_size)) {
+        switch (instance->lexeme[tp]) {
           case '\"' :
             break;
           case '\\' :
             tp++;
-            switch (lexeme[tp]) {
+            switch (instance->lexeme[tp]) {
               case 'n' :
                 buf[bp] = '\n';
                 break;
@@ -481,64 +464,65 @@ void str_process (void) {
                 buf[bp] = '\'';
                 break;
               default :
-                syntax_error("illegal esc seq");
+                instance->error("illegal esc seq");
                 break;
             }
             bp++;
             break;
           default :
-            buf[bp] = lexeme[tp];
+            buf[bp] = instance->lexeme[tp];
             bp++;
             break;
         }
         tp++;
     }
     buf[bp] = '\0';
-    strcpy(lexeme, buf);
+    strcpy(instance->lexeme, buf);
+    free(buf);
 }
 
 
 
-int num_process (void) {
+int num_process (lex_instance_t *instance) {
     int i;
     int value = 0;
 
-    switch (token) {
+    switch (instance->token) {
       case T_CHAR:                  /* 'a' */
-        value = lexeme[1];
+        value = instance->lexeme[1];
         break;
       case T_INTEGER:               /* 1234 */
-        for (i = 0; lexeme[i]; i++) {
+        for (i = 0; instance->lexeme[i]; i++) {
             value *= 10;
-            value += lexeme[i] - '0';
+            value += instance->lexeme[i] - '0';
         }
         break;
       case T_OCTAL:                 /* 0123 */
-        for (i = 1; lexeme[i]; i++) {
+        for (i = 1; instance->lexeme[i]; i++) {
             value *= 8;
-            value += lexeme[i] - '0';
+            value += instance->lexeme[i] - '0';
         }
         break;
       case T_BINARY:                /* 0b101 */
-        for (i = 2; lexeme[i]; i++) {
+        for (i = 2; instance->lexeme[i]; i++) {
             value *= 2;
-            value += lexeme[i] - '0';
+            value += instance->lexeme[i] - '0';
         }
         break;
       case T_HEXA:                  /* 0x1fa */
-        for (i = 2; lexeme[i]; i++) {
+        for (i = 2; instance->lexeme[i]; i++) {
             value *= 16;
-            if (lexeme[i] >= '0' && lexeme[i] <= '9') {
-                value += lexeme[i] - '0';
-            } else if (lexeme[i] >= 'a' && lexeme[i] <= 'f') {
-                value += lexeme[i] + 0xa - 'a';
-            } else if (lexeme[i] >= 'A' && lexeme[i] <= 'F') {
-                value += lexeme[i] + 0xA - 'A';
+            if (instance->lexeme[i] >= '0' && instance->lexeme[i] <= '9') {
+                value += instance->lexeme[i] - '0';
+            } else if (instance->lexeme[i] >= 'a' && instance->lexeme[i] <= 'f') {
+                value += instance->lexeme[i] + 0xa - 'a';
+            } else if (instance->lexeme[i] >= 'A' && instance->lexeme[i] <= 'F') {
+                value += instance->lexeme[i] + 0xA - 'A';
             }
         }
         break;
       default:
-        return 0;
+        instance->error("unknown numeric format");
     }
     return value;
 }

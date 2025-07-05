@@ -1,8 +1,6 @@
 #ifndef _LEX_H_
 #define _LEX_H_
 
-#define MAX_TOKEN_SIZE          128
-
 
 enum {
     T_NONE,
@@ -81,14 +79,28 @@ enum {
 };
 
 
-extern char     lexeme[];
-extern int      token;
+typedef struct {
+    char*   lexeme;
+    int     lexeme_size;
+    char*   pointer;
+    int     token;
+    int     last_char;
+    int     flags;
+    int     (*read_byte)(int*);  // Function to read the next byte
+    void    (*error) (const char*);  // Error message printer
+} lex_instance_t;
 
-void lex_init_fd (int ifd, int init_flags);
-void lex_init_buf (char* ibuf, int init_flags);
 
-void next_token (void);
-int lex_get(int token_type, const char* str);
-void str_process (void);
-int num_process (void);
+lex_instance_t* lex_init (int lexeme_size,
+                          int (*read_byte)(int*),
+                          void (*error) (const char*),
+                          int init_flags);
+
+
+void next_token (lex_instance_t* instance);
+int lex_get(lex_instance_t* instance, int token_type, const char* str);
+void str_process (lex_instance_t* instance);
+int num_process (lex_instance_t* instance);
+
+
 #endif
