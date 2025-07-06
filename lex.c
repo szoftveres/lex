@@ -381,18 +381,23 @@ void next_token (lex_instance_t* instance) {
     int c;
 
     instance->token = T_NONE;
-    instance->pointer = instance->lexeme;
+    instance->pointer = 0;
     while (1) {
         c = popchar(instance);
         if (!tokenize(instance, (char)c)) {
             if (instance->token != T_NONE) {
                 pushchar(instance, c);
-                *(instance->pointer) = '\0';
+                instance->lexeme[instance->pointer] = '\0';
                 return;
             }
             continue; /* It was a trailing whitespace */
         }
-        *(instance->pointer++) = (char)c;
+        instance->lexeme[instance->pointer] = (char)c;
+        if (instance->pointer < instance->lexeme_size - 1) {
+            instance->pointer++;
+        } else {
+            instance->lexeme[instance->pointer] = '\0';
+        }
     }
 }
 

@@ -83,7 +83,7 @@ enum {
 typedef struct lex_instance_s {
     char*   lexeme;
     int     lexeme_size;
-    char*   pointer;
+    int     pointer;
     int     token;
     int     last_char;
     int     flags;
