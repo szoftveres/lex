@@ -118,7 +118,6 @@ int tokenize (lex_instance_t *instance, char c) {
           case T_CHAR_CONTENT :
           case T_STRING_START :
           case T_STRING_CONTENT :
-          case T_LEAD_ZERO :
           case T_BINARY_S :
           case T_HEXA_S :
             instance->error(instance, "incomplete symbol (EOF)");
