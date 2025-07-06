@@ -106,8 +106,26 @@ int alpha (char c) {
 }
 
 /**
+ * Retval
+ *  1: more runs are needed to determine the token
+ *  0: finished with definite result
 */
 int tokenize (lex_instance_t *instance, char c) {
+
+    if (c == (char)EOF) { // getting an EOF in the middle of something
+        switch (instance->token) {
+          case T_CHAR_START :
+          case T_CHAR_CONTENT :
+          case T_STRING_START :
+          case T_STRING_CONTENT :
+          case T_LEAD_ZERO :
+          case T_BINARY_S :
+          case T_HEXA_S :
+            instance->error(instance, "incomplete symbol (EOF)");
+            instance->token = T_ERROR;
+            return 0;
+        }
+    }
 
     if (c == '\\') {
         switch (instance->token) {
@@ -397,6 +415,7 @@ void next_token (lex_instance_t* instance) {
             instance->pointer++;
         } else {
             instance->lexeme[instance->pointer] = '\0';
+            return;
         }
     }
 }
