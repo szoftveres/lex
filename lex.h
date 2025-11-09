@@ -27,6 +27,7 @@ enum {
     T_STRING_SPECIAL,           /* \n \t */
     T_STRING,                   /* ".*" */
 
+	T_DOLLAR,                   /* $ */
     T_AT,                       /* @ */
     T_SEMICOLON,                /* ; */
     T_COLON,                    /* : */
@@ -88,7 +89,7 @@ typedef struct lex_instance_s {
     int     last_char;
     int     flags;
     int     (*read_byte)(struct lex_instance_s*, int*);  // Function to read the next byte
-    void    (*error) (struct lex_instance_s*, const char*);  // Error message printer
+    void    (*error) (struct lex_instance_s*, int, const char*);  // Error message printer
     void    *context;           // High-level context (object owner)
 } lex_instance_t;
 
@@ -96,7 +97,7 @@ typedef struct lex_instance_s {
 lex_instance_t* lex_create (void *context,
                             int lexeme_size,
                             int (*read_byte)(lex_instance_t*, int*),
-                            void (*error) (lex_instance_t*, const char*),
+                            void (*error) (lex_instance_t*, int c, const char*),
                             int init_flags);
 
 void lex_destroy (lex_instance_t* instance);
