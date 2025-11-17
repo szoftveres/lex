@@ -156,6 +156,7 @@ int tokenize (lex_instance_t *instance, char c) {
           case T_NONE :
             instance->token = T_STRING_START;
             return 1;   /* ok, continue */
+          case T_STRING_START :
           case T_STRING_CONTENT :
             instance->token = T_STRING;
             return 1;   /* seems like finished */
