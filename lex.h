@@ -78,6 +78,7 @@ enum {
 
 enum {
     LEX_NEWLINE_AS_TOKEN      = 0x0001,
+    LEX_OCTAL_AS_INT          = 0x0002,
 };
 
 

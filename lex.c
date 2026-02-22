@@ -216,7 +216,7 @@ int tokenize (lex_instance_t *instance, char c) {
             }
           case T_NONE :
             if (c == '0') {
-                instance->token = T_LEAD_ZERO;
+                instance->token = (instance->flags & LEX_OCTAL_AS_INT) ? T_INTEGER : T_LEAD_ZERO;
             } else {
                 instance->token = T_INTEGER;
             }
@@ -498,6 +498,11 @@ void str_value (lex_instance_t *instance) {
             break;
           case '\\' :
             tp++;
+            while (instance->lexeme[tp] == '\\') {
+                tp++;
+                buf[bp] = '\\';
+                bp++;
+            }
             switch (instance->lexeme[tp]) {
               case 'n' :
                 buf[bp] = '\n';
@@ -507,9 +512,6 @@ void str_value (lex_instance_t *instance) {
                 break;
               case 't' :
                 buf[bp] = '\t';
-                break;
-              case '\\' :
-                buf[bp] = '\\';
                 break;
               case '\"' :
                 buf[bp] = '\"';
