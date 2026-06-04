@@ -5,9 +5,6 @@ OUTDIR = .
 
 ## General Flags
 PROGRAM = lex
-CC = gcc
-LD = gcc
-CFLAGS = -Wall -Wextra -O0 -I $(INCLDIR)
 
 ## Objects that must be built in order to link
 OBJECTS = $(OBJDIR)/lex.o
@@ -18,7 +15,8 @@ all: $(OBJECTS)
 
 ## Compile source files
 $(OBJDIR)/%.o : $(SRCDIR)/%.c
-	$(CC) $(CFLAGS) -c -o $(OBJDIR)/$*.o $< 
+	$(PLATFORM_CC) $(PLATFORM_CFLAGS) -c -o $(OBJDIR)/$*.o $< 
+	$(PLATFORM_AR) rcs $(PROGRAM).a $(OBJECTS)
 
 clean:
 	-rm -rf $(OBJECTS)
