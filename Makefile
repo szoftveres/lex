@@ -3,6 +3,16 @@ SRCDIR = .
 INCLDIR = .
 OUTDIR = .
 
+ifndef PLATFORM_CC
+$(error PLATFORM_CC undefined)
+endif
+ifndef PLATFORM_CFLAGS
+$(error PLATFORM_CFLAGS undefined)
+endif
+ifndef PLATFORM_AR
+$(error PLATFORM_AR undefined)
+endif
+
 ## General Flags
 PROGRAM = lex
 
